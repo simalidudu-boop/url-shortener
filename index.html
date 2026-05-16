@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>⚡ URL Shortener</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app">
+    <!-- Header -->
+    <header>
+      <h1>⚡ Short<span class="highlight">Link</span></h1>
+      <p class="subtitle">Free URL Shortener powered by GitHub Pages</p>
+    </header>
+
+    <!-- Quick Lookup -->
+    <section class="card">
+      <h2>🔍 Test a Short Link</h2>
+      <div class="input-group">
+        <span class="base-url" id="baseUrl"></span>
+        <input type="text" id="testSlug" placeholder="slug" />
+        <button onclick="testLink()">Go →</button>
+      </div>
+    </section>
+
+    <!-- All Links Table -->
+    <section class="card">
+      <h2>📋 All Short Links</h2>
+      <div class="search-bar">
+        <input type="text" id="search" placeholder="Search links..." oninput="filterLinks()">
+      </div>
+      <div class="table-wrapper">
+        <table id="linksTable">
+          <thead>
+            <tr>
+              <th>Short Link</th>
+              <th>Destination</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="linksBody"></tbody>
+        </table>
+      </div>
+      <p id="emptyState" class="empty-state" style="display:none;">No links found.</p>
+    </section>
+
+    <!-- How to Add Links -->
+    <section class="card">
+      <h2>➕ How to Add New Links</h2>
+      <div class="instructions">
+        <p>Edit <code>urls.json</code> in your GitHub repository:</p>
+        <div class="code-block">
+          <pre><code>{
+  "mylink": "https://example.com/long-url",
+  "newslug": "https://destination.com"
+}</code></pre>
+        </div>
+
+        <h3>Quick Add via GitHub API (Advanced)</h3>
+        <p>Use the form below to generate the edit link:</p>
+        <div class="input-group">
+          <input type="text" id="newSlug" placeholder="slug">
+          <input type="text" id="newUrl" placeholder="https://destination.com" style="flex:2">
+          <button onclick="generateEditLink()">Generate</button>
+        </div>
+        <p id="editLink" class="edit-link"></p>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+      <p>
+        Hosted free on <a href="https://pages.github.com" target="_blank">GitHub Pages</a> |
+        <a href="https://github.com/YOUR_USERNAME/YOUR_REPO" target="_blank">Source Code</a>
+      </p>
+    </footer>
+  </div>
+
+  <script>
+    const BASE_URL = window.location.origin;
+    let allUrls = {};
+
+    // Initialize
+    document.getElementById('baseUrl').textContent = BASE_URL + '/';
+
+    // Load URLs
+    async function loadUrls() {
+      try {
+        const res = await fetch('/urls.json?v=' + Date.now());
+        allUrls = await res.json();
+        renderLinks(allUrls);
+      } catch (e) {
+        console.error('Failed to load urls.json', e);
+      }
+    }
+
+    // Render links table
+    function renderLinks(urls) {
+      const tbody = document.getElementById('linksBody');
+      const entries = Object.entries(urls);
+      const empty = document.getElementById('emptyState');
+
+      if (entries.length === 0) {
+        tbody.innerHTML = '';
+        empty.style.display = 'block';
+        return;
+      }
+
+      empty.style.display = 'none';
+      tbody.innerHTML = entries
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([slug, url]) => `
+          <tr>
+            <td>
+              <a href="/${slug}" class="short-link">/${slug}</a>
+            </td>
+            <td>
+              <a href="${url}" target="_blank" rel="noopener" class="dest-link" title="${url}">
+                ${truncate(url, 50)}
+              </a>
+            </td>
+            <td>
+              <button class="btn-sm" onclick="copyLink('${slug}')">📋 Copy</button>
+            </td>
+          </tr>
+        `).join('');
+    }
+
+    // Filter links
+    function filterLinks() {
+      const query = document.getElementById('search').value.toLowerCase();
+      const filtered = {};
+      Object.entries(allUrls).forEach(([slug, url]) => {
+        if (slug.toLowerCase().includes(query) || url.toLowerCase().includes(query)) {
+          filtered[slug] = url;
+        }
+      });
+      renderLinks(filtered);
+    }
+
+    // Test a link
+    function testLink() {
+      const slug = document.getElementById('testSlug').value.trim();
+      if (slug) window.open('/' + slug, '_blank');
+    }
+
+    // Copy short link
+    function copyLink(slug) {
+      const url = `${BASE_URL}/${slug}`;
+      navigator.clipboard.writeText(url).then(() => {
+        showToast(`Copied: ${url}`);
+      });
+    }
+
+    // Generate GitHub edit link
+    function generateEditLink() {
+      const slug = document.getElementById('newSlug').value.trim();
+      const url = document.getElementById('newUrl').value.trim();
+      if (!slug || !url) {
+        alert('Please fill in both fields');
+        return;
+      }
+      const el = document.getElementById('editLink');
+      el.innerHTML = `
+        ✅ Add <code>"${slug}": "${url}"</code> to your
+        <a href="https://github.com/YOUR_USERNAME/YOUR_REPO/edit/main/urls.json"
+           target="_blank">urls.json file</a>
+      `;
+    }
+
+    // Truncate text
+    function truncate(str, len) {
+      return str.length > len ? str.substring(0, len) + '...' : str;
+    }
+
+    // Toast notification
+    function showToast(msg) {
+      const toast = document.createElement('div');
+      toast.className = 'toast';
+      toast.textContent = msg;
+      document.body.appendChild(toast);
+      setTimeout(() => toast.classList.add('show'), 10);
+      setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+      }, 2000);
+    }
+
+    // Initialize
+    loadUrls();
+  </script>
+</body>
+</html>
